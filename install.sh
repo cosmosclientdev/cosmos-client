@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Cosmos Client installer for Linux. Safe to re-run: it simply replaces the
-# AppImage with the latest release, so it doubles as the updater.
+
 set -euo pipefail
 
 BASE_URL="${COSMOS_BASE_URL:-https://github.com/cosmosclientdev/cosmos-client/releases/latest/download}"
@@ -24,6 +23,11 @@ fi
 
 mkdir -p "$APP_DIR" "$DESKTOP_DIR" "$ICON_DIR"
 
+# Remember whether this is a fresh install: this script also runs on every
+# auto-update, which must not recreate a desktop icon the user has deleted
+fresh_install=true
+[ -e "$APP_PATH" ] && fresh_install=false
+
 echo "Downloading Cosmos Client..."
 tmp="$(mktemp "$APP_DIR/.cosmos-client.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
@@ -40,7 +44,7 @@ cat > "$DESKTOP_DIR/cosmos-client.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Cosmos Client
-Comment=VPN client
+Comment=Cosmos Client
 Exec=$APP_PATH
 Icon=cosmos-client
 Terminal=false
@@ -48,6 +52,18 @@ Categories=Network;
 StartupWMClass=cosmos_client
 EOF
 command -v update-desktop-database >/dev/null && update-desktop-database "$DESKTOP_DIR" || true
+
+# On a fresh install also drop a launcher onto the desktop. GNOME shows a
+# warning icon for .desktop files there unless they are executable and
+# explicitly marked trusted; KDE/XFCE are fine with just the file
+if $fresh_install; then
+    desktop_dir="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+    if [ -d "$desktop_dir" ] && [ "$desktop_dir" != "$HOME" ]; then
+        cp "$DESKTOP_DIR/cosmos-client.desktop" "$desktop_dir/"
+        chmod +x "$desktop_dir/cosmos-client.desktop"
+        gio set "$desktop_dir/cosmos-client.desktop" metadata::trusted true 2>/dev/null || true
+    fi
+fi
 
 echo "Installed: $APP_PATH"
 echo "If Cosmos Client is running, restart it to pick up the new version."

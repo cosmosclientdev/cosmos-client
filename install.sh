@@ -45,13 +45,17 @@ cat > "$DESKTOP_DIR/cosmos-client.desktop" <<EOF
 Type=Application
 Name=Cosmos Client
 Comment=Cosmos Client
-Exec=$APP_PATH
+Exec=$APP_PATH %u
 Icon=cosmos-client
 Terminal=false
 Categories=Network;
 StartupWMClass=cosmos_client
+MimeType=x-scheme-handler/cosmos-client;
 EOF
 command -v update-desktop-database >/dev/null && update-desktop-database "$DESKTOP_DIR" || true
+# Deep links: make the browser open cosmos-client:// URLs with the app.
+# MimeType alone only advertises the handler; this makes it the default
+command -v xdg-mime >/dev/null && xdg-mime default cosmos-client.desktop x-scheme-handler/cosmos-client || true
 
 # On a fresh install also drop a launcher onto the desktop. GNOME shows a
 # warning icon for .desktop files there unless they are executable and

@@ -3,12 +3,24 @@
 set -euo pipefail
 
 BASE_URL="${COSMOS_BASE_URL:-https://github.com/cosmosclientdev/cosmos-client/releases/latest/download}"
+# The static files next to this script in the root of the public repo
+STATIC_URL="${COSMOS_STATIC_URL:-https://raw.githubusercontent.com/cosmosclientdev/cosmos-client/main}"
 APP_DIR="$HOME/.local/bin"
 APP_PATH="$APP_DIR/cosmos-client"
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
 
-SING_BOX_VERSION="1.13.18"
+# The sing-box pin this copy of the script was published with; only the
+# fallback for when latest.json cannot be fetched
+SING_BOX_VERSION="1.14.0"
+
+# The sing-box pin published in latest.json; it moves between releases
+# (publish-static.yml), so a bump reaches macOS without a new script. Empty
+# when the file cannot be fetched
+published_sing_box_version() {
+    curl -fsL --proto '=https' --max-time 15 "$STATIC_URL/latest.json" 2>/dev/null \
+        | sed -n 's/.*"sing_box": *"\([^"]*\)".*/\1/p' || true
+}
 
 install_linux() {
     if [ "$(uname -m)" != "x86_64" ]; then
@@ -77,14 +89,17 @@ EOF
 }
 
 install_macos() {
-    local pkg="SFM-$SING_BOX_VERSION-Universal.pkg"
-    local url="https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_VERSION/$pkg"
+    local version
+    version="$(published_sing_box_version)"
+    version="${version:-$SING_BOX_VERSION}"
+    local pkg="SFM-$version-Universal.pkg"
+    local url="https://github.com/SagerNet/sing-box/releases/download/v$version/$pkg"
 
     local tmp_dir
     tmp_dir="$(mktemp -d)"
     trap 'rm -rf "$tmp_dir"' EXIT
 
-    echo "Cosmos Client has no macOS build yet — installing sing-box $SING_BOX_VERSION instead."
+    echo "Cosmos Client has no macOS build yet — installing sing-box $version instead."
     echo "Downloading $pkg..."
     curl -fL --proto '=https' -o "$tmp_dir/$pkg" "$url"
 

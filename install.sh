@@ -28,15 +28,56 @@ install_linux() {
         exit 1
     fi
 
+    # What the AppImage expects from the host, reported all at once with a
+    # single install command so the user does not chase one missing package
+    # after another.
+    #
     # The AppImage carries the static type2 runtime, which needs no libfuse2:
     # it mounts itself through fusermount3 (or fusermount) found on $PATH,
     # shipped by the fuse3 package that mainstream distributions install by
     # default. Checking ldconfig for libfuse.so.2 here used to refuse to
-    # install on distributions that have dropped libfuse2 (Ubuntu 24.04+)
+    # install on distributions that have dropped libfuse2 (Ubuntu 24.04+).
+    #
+    # The libraries are the ones linuxdeploy leaves out on purpose (its
+    # excludelist): the graphics driver stack (libglvnd, which Qt6 links
+    # against), fontconfig/freetype, X11/xcb and wayland-client have to match
+    # the host and are not bundled. Minimal Ubuntu/Debian installs and WSL
+    # lack libopengl0, which makes the app fail to load at all. The list was
+    # taken from the NEEDED entries of the AppImage contents minus what is
+    # bundled, leaving out libc/libstdc++/zlib that every system has
+    local missing=()
     if ! command -v fusermount3 >/dev/null && ! command -v fusermount >/dev/null; then
-        echo "FUSE is required to run AppImages. Install it first:" >&2
-        echo "    sudo apt install fuse3     # Debian/Ubuntu" >&2
-        echo "    sudo dnf install fuse3     # Fedora" >&2
+        missing+=(fusermount3)
+    fi
+    # ldconfig lives in /sbin, which is not on every user's $PATH. A missing
+    # ldconfig is not treated as missing libraries
+    local ldconfig
+    ldconfig="$(command -v ldconfig || echo /sbin/ldconfig)"
+    if [ -x "$ldconfig" ]; then
+        local cache lib
+        cache="$("$ldconfig" -p 2>/dev/null || true)"
+        for lib in libOpenGL.so.0 libEGL.so.1 libGL.so.1 libGLX.so.0 \
+                   libfontconfig.so.1 libfreetype.so.6 libwayland-client.so.0 \
+                   libX11.so.6 libX11-xcb.so.1 libxcb.so.1; do
+            # The arch tag skips 32-bit-only entries on multiarch systems
+            case "$cache" in
+                *"$lib (libc6,x86-64)"*) ;;
+                *) missing+=("$lib") ;;
+            esac
+        done
+    fi
+    if [ "${#missing[@]}" -gt 0 ]; then
+        echo "Cosmos Client needs system components that are missing here: ${missing[*]}" >&2
+        echo "Install them first, then re-run this script:" >&2
+        if command -v apt-get >/dev/null; then
+            echo "    sudo apt install fuse3 libopengl0 libegl1 libgl1 libglx0 libfontconfig1 libfreetype6 libwayland-client0 libx11-6 libx11-xcb1 libxcb1" >&2
+        elif command -v dnf >/dev/null; then
+            echo "    sudo dnf install fuse3 libglvnd-opengl libglvnd-egl libglvnd-glx mesa-libGL mesa-libEGL fontconfig freetype libwayland-client libX11 libX11-xcb libxcb" >&2
+        elif command -v pacman >/dev/null; then
+            echo "    sudo pacman -S --needed fuse3 libglvnd mesa fontconfig freetype2 wayland libx11 libxcb" >&2
+        else
+            echo "    (use your distribution's package manager)" >&2
+        fi
         exit 1
     fi
 

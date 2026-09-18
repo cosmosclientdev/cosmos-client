@@ -28,11 +28,15 @@ install_linux() {
         exit 1
     fi
 
-    # AppImage needs libfuse2, and modern distributions do not ship it by default
-    if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
-        echo "libfuse2 is required to run AppImages. Install it first:" >&2
-        echo "    sudo apt install libfuse2      # Debian/Ubuntu" >&2
-        echo "    sudo dnf install fuse-libs     # Fedora" >&2
+    # The AppImage carries the static type2 runtime, which needs no libfuse2:
+    # it mounts itself through fusermount3 (or fusermount) found on $PATH,
+    # shipped by the fuse3 package that mainstream distributions install by
+    # default. Checking ldconfig for libfuse.so.2 here used to refuse to
+    # install on distributions that have dropped libfuse2 (Ubuntu 24.04+)
+    if ! command -v fusermount3 >/dev/null && ! command -v fusermount >/dev/null; then
+        echo "FUSE is required to run AppImages. Install it first:" >&2
+        echo "    sudo apt install fuse3     # Debian/Ubuntu" >&2
+        echo "    sudo dnf install fuse3     # Fedora" >&2
         exit 1
     fi
 

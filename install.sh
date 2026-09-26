@@ -12,7 +12,7 @@ ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
 
 # The sing-box pin this copy of the script was published with; only the
 # fallback for when latest.json cannot be fetched
-SING_BOX_VERSION="1.14.0"
+SING_BOX_VERSION="1.14.2"
 
 # The sing-box pin published in latest.json; it moves between releases
 # (publish-static.yml), so a bump reaches macOS without a new script. Empty
